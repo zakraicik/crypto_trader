@@ -6,7 +6,7 @@ import requests
 
 from typing import Optional
 
-from crypto_trader.helper import df_to_s3
+from crypto_trader.helper import df_to_s3, compute_number_data_points, INTERVAL_MAPPING
 from crypto_trader.config import (
     API_KEY,
     AWS_ACCESS_KEY_ID,
