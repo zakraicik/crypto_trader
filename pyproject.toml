@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "crypto_trader"
+version = "0.1.0"
+description = ""
+authors = ["Zak Raicik <raicik.zach@Gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pandas = "^1.5.3"
+ccxt = "^3.0.48"
+black = "^23.3.0"
+matplotlib = "^3.7.1"
+ipykernel = "^6.22.0"
+boto3 = "^1.26.109"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

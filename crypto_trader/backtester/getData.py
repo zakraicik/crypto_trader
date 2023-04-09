@@ -128,7 +128,7 @@ def main():
         args.symbol, args.interval, args.start_date, args.end_date
     )
 
-    s3_path = f"data/{args.symbol}_{args.interval}_{args.start_date.strftime('%Y_%m_%d')}_{args.end_date.strftime('%Y_%m_%d')}"
+    s3_path = f"data/{args.symbol}/{args.start_date.strftime('%Y_%m_%d')}_{args.end_date.strftime('%Y_%m_%d')}_{args.interval}.json"
 
     df_to_s3(
         df,
