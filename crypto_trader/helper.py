@@ -1,8 +1,8 @@
 import boto3
 import io
 import logging
+import json
 import requests
-import pandas as pd
 from datetime import datetime
 
 
@@ -51,46 +51,9 @@ def make_api_request(url, params, headers):
     return response
 
 
-def response_to_dataframe(response):
-    df = pd.DataFrame(
-        response.json(),
-        columns=[
-            "open_time",
-            "open",
-            "high",
-            "low",
-            "close",
-            "volume",
-            "close_time",
-            "quote_asset_volume",
-            "number_of_trades",
-            "taker_buy_base_asset_volume",
-            "taker_buy_quote_asset_volume",
-            "ignore",
-        ],
-    )
-
-    df["open_time"] = pd.to_datetime(df["open_time"], unit="ms")
-
-    df.set_index("open_time", inplace=True)
-
-    df = df.astype(float)
-
-    return df
-
-
-def df_to_s3(df, bucket_name, file_key, aws_access_key_id, aws_secret_access_key):
-    """
-    Saves a pandas dataframe to S3 as a JSON file.
-
-    Args:
-        df (pandas.DataFrame): The dataframe to save.
-        bucket_name (str): The name of the S3 bucket to save the file in.
-        file_key (str): The key (i.e. filename) to save the file under in the S3 bucket.
-    """
-
+def to_s3(response, bucket_name, file_key, aws_access_key_id, aws_secret_access_key):
     # Convert the dataframe to a JSON string
-    json_string = df.to_json(orient="records")
+    json_string = json.dumps(response)
 
     # Create an S3 client
     s3 = boto3.client(
