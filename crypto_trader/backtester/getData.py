@@ -1,17 +1,14 @@
 import argparse
 import datetime as dt
 import logging
-import pandas as pd
-import requests
 import datetime
 
-from typing import Optional
+from typing import Optional, List
 
 from crypto_trader.helper import (
-    df_to_s3,
+    to_s3,
     compute_number_data_points,
     make_api_request,
-    response_to_dataframe,
     MAX_DATA_POINTS,
     URL,
     INTERVAL_MAPPING,
@@ -31,26 +28,7 @@ def get_historical_prices(
     interval: str,
     start_date: dt.datetime,
     end_date: dt.datetime,
-) -> Optional[pd.DataFrame]:
-    """
-    Retrieves historical price data for a given cryptocurrency symbol from the Binance API.
-
-    Args:
-        symbol (str): The symbol of the cryptocurrency to retrieve price data for (e.g. 'ETHUSDT').
-        interval (str): The interval at which to retrieve price data (e.g. '1d' for daily data).
-        start_date (datetime): The start date for the price data to retrieve.
-        end_date (datetime): The end date for the price data to retrieve.
-        api_key (str): Your Binance API key.
-
-    Returns:
-        pandas.DataFrame: A DataFrame containing the historical price data, with one row per interval.
-
-    Raises:
-        requests.exceptions.RequestException: If an error occurs while making the API request.
-        ValueError: If an error occurs while converting the API response to a DataFrame.
-
-    """
-
+) -> Optional[List[dict]]:
     params = {
         "symbol": symbol,
         "interval": interval,
@@ -66,7 +44,7 @@ def get_historical_prices(
     )
 
     if number_data_points > MAX_DATA_POINTS:
-        df = pd.DataFrame()
+        response_list = []
 
         number_requests = int(number_data_points // 1000) + 1
 
@@ -89,9 +67,7 @@ def get_historical_prices(
             response = make_api_request(URL, params, headers)
 
             if response is not None:
-                temp_df = response_to_dataframe(response)
-
-                df = pd.concat([df, temp_df])
+                response_list = response_list + response.json()
 
             request_start_date = request_end_date + datetime.timedelta(days=1)
 
@@ -101,7 +77,7 @@ def get_historical_prices(
                 datetime.datetime.combine(datetime.datetime.today(), datetime.time.min),
             )
 
-        return df
+        return response_list
 
     else:
         params = {
@@ -115,9 +91,7 @@ def get_historical_prices(
         response = make_api_request(URL, params, headers)
 
         if response is not None:
-            df = response_to_dataframe(response)
-
-            return df
+            return response.json()
 
 
 def main():
@@ -147,14 +121,14 @@ def main():
 
     args = parser.parse_args()
 
-    df = get_historical_prices(
+    response = get_historical_prices(
         args.symbol, args.interval, args.start_date, args.end_date
     )
 
     s3_path = f"data/{args.symbol}/{args.start_date.strftime('%Y_%m_%d')}_{args.end_date.strftime('%Y_%m_%d')}_{args.interval}.json"
 
-    df_to_s3(
-        df,
+    to_s3(
+        response,
         BUCKET,
         s3_path,
         AWS_ACCESS_KEY_ID,
