@@ -3,10 +3,19 @@ import datetime as dt
 import logging
 import pandas as pd
 import requests
+import datetime
 
 from typing import Optional
 
-from crypto_trader.helper import df_to_s3, compute_number_data_points, INTERVAL_MAPPING
+from crypto_trader.helper import (
+    df_to_s3,
+    compute_number_data_points,
+    make_api_request,
+    response_to_dataframe,
+    MAX_DATA_POINTS,
+    URL,
+    INTERVAL_MAPPING,
+)
 from crypto_trader.config import (
     API_KEY,
     AWS_ACCESS_KEY_ID,
@@ -42,8 +51,6 @@ def get_historical_prices(
 
     """
 
-    url = "https://api.binance.us/api/v3/klines"
-
     params = {
         "symbol": symbol,
         "interval": interval,
@@ -54,47 +61,63 @@ def get_historical_prices(
 
     headers = {"X-MBX-APIKEY": API_KEY}
 
-    try:
-        response = requests.get(url, params=params, headers=headers)
+    number_data_points = compute_number_data_points(
+        start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"), interval
+    )
 
-        response.raise_for_status()
+    if number_data_points > MAX_DATA_POINTS:
+        df = pd.DataFrame()
 
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error making API request: {e}")
+        number_requests = int(number_data_points // 1000) + 1
 
-        return None
+        data_points_per_day = INTERVAL_MAPPING[interval]
+        number_of_days_per_request = 1000 / data_points_per_day
 
-    try:
-        df = pd.DataFrame(
-            response.json(),
-            columns=[
-                "open_time",
-                "open",
-                "high",
-                "low",
-                "close",
-                "volume",
-                "close_time",
-                "quote_asset_volume",
-                "number_of_trades",
-                "taker_buy_base_asset_volume",
-                "taker_buy_quote_asset_volume",
-                "ignore",
-            ],
+        request_start_date = start_date
+        request_end_date = start_date + datetime.timedelta(
+            days=number_of_days_per_request
         )
+        for i in range(number_requests):
+            params = {
+                "symbol": symbol,
+                "interval": interval,
+                "startTime": int(dt.datetime.timestamp(request_start_date) * 1000),
+                "endTime": int(dt.datetime.timestamp(request_end_date) * 1000),
+                "limit": 1000,
+            }
 
-        df["open_time"] = pd.to_datetime(df["open_time"], unit="ms")
+            response = make_api_request(URL, params, headers)
 
-        df.set_index("open_time", inplace=True)
+            if response is not None:
+                temp_df = response_to_dataframe(response)
 
-        df = df.astype(float)
+                df = pd.concat([df, temp_df])
+
+            request_start_date = request_end_date + datetime.timedelta(days=1)
+
+            request_end_date = min(
+                request_start_date
+                + datetime.timedelta(days=number_of_days_per_request),
+                datetime.datetime.combine(datetime.datetime.today(), datetime.time.min),
+            )
 
         return df
 
-    except ValueError as e:
-        logger.error(f"Error converting response to dataframe: {e}")
+    else:
+        params = {
+            "symbol": symbol,
+            "interval": interval,
+            "startTime": int(dt.datetime.timestamp(start_date) * 1000),
+            "endTime": int(dt.datetime.timestamp(end_date) * 1000),
+            "limit": 1000,
+        }
 
-        return None
+        response = make_api_request(URL, params, headers)
+
+        if response is not None:
+            df = response_to_dataframe(response)
+
+            return df
 
 
 def main():
