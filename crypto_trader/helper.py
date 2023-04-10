@@ -1,7 +1,12 @@
 import boto3
 import io
 import logging
+import requests
+import pandas as pd
 from datetime import datetime
+
+
+logger = logging.getLogger(__name__)
 
 INTERVAL_MAPPING = {
     "1m": 1440,
@@ -18,6 +23,10 @@ INTERVAL_MAPPING = {
     "1d": 1,
 }
 
+MAX_DATA_POINTS = 1000
+
+URL = "https://api.binance.us/api/v3/klines"
+
 
 def compute_number_data_points(start_date, end_date, interval):
     start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
@@ -28,6 +37,46 @@ def compute_number_data_points(start_date, end_date, interval):
     number_of_data_points = (INTERVAL_MAPPING[interval] * date_difference) + 1
 
     return number_of_data_points
+
+
+def make_api_request(url, params, headers):
+    try:
+        response = requests.get(url, params=params, headers=headers)
+
+        response.raise_for_status()
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error making API request: {e}")
+
+    return response
+
+
+def response_to_dataframe(response):
+    df = pd.DataFrame(
+        response.json(),
+        columns=[
+            "open_time",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "close_time",
+            "quote_asset_volume",
+            "number_of_trades",
+            "taker_buy_base_asset_volume",
+            "taker_buy_quote_asset_volume",
+            "ignore",
+        ],
+    )
+
+    df["open_time"] = pd.to_datetime(df["open_time"], unit="ms")
+
+    df.set_index("open_time", inplace=True)
+
+    df = df.astype(float)
+
+    return df
 
 
 def df_to_s3(df, bucket_name, file_key, aws_access_key_id, aws_secret_access_key):
