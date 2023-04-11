@@ -5,7 +5,6 @@ import json
 import requests
 from datetime import datetime
 
-
 logger = logging.getLogger(__name__)
 
 INTERVAL_MAPPING = {
@@ -23,6 +22,8 @@ INTERVAL_MAPPING = {
     "1d": 1,
 }
 
+BUCKET = "cyrpto-trading-bot"
+
 MAX_DATA_POINTS = 1000
 
 URL = "https://api.binance.us/api/v3/klines"
@@ -37,6 +38,27 @@ def compute_number_data_points(start_date, end_date, interval):
     number_of_data_points = (INTERVAL_MAPPING[interval] * date_difference) + 1
 
     return number_of_data_points
+
+
+def convert_to_json(kline_data):
+    keys = [
+        "open_time",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "close_time",
+        "quote_asset_volume",
+        "number_of_trades",
+        "taker_buy_base_asset_volume",
+        "taker_buy_quote_asset_volume",
+        "ignore",
+    ]
+
+    json_data = [dict(zip(keys, candlestick)) for candlestick in kline_data]
+
+    return json_data
 
 
 def make_api_request(url, params, headers):
@@ -69,3 +91,7 @@ def to_s3(response, bucket_name, file_key, aws_access_key_id, aws_secret_access_
 
     except Exception as e:
         return False
+
+
+def from_s3(response, bucket_name, file_key, aws_access_key_id, aws_secret_access_key):
+    pass
