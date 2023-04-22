@@ -1,34 +1,12 @@
+import logging
 import pandas as pd
 import numpy as np
 from crypto_trader.backtester.strategies import *
 
+logger = logging.getLogger(__name__)
+
 
 def run_backtest(prices, strategy):
-    """
-    Run a backtest on a trading strategy using historical price data.
-
-    Parameters:
-    - prices: A pandas DataFrame containing historical price data with the following columns:
-        - timestamp: The timestamp of each data point.
-        - open: The opening price of the asset.
-        - high: The highest price of the asset.
-        - low: The lowest price of the asset.
-        - close: The closing price of the asset.
-        - volume: The trading volume of the asset.
-    - strategy: A function that takes the historical price data as input and returns a pandas DataFrame with the following columns:
-        - timestamp: The timestamp of each trading signal.
-        - position: The position to take in the asset at each trading signal (-1 for short, 0 for neutral, 1 for long).
-
-    Returns:
-    A pandas DataFrame with the following columns:
-    - timestamp: The timestamp of each trade.
-    - trade_type: The type of trade ('buy' or 'sell').
-    - trade_size: The size of the trade in units of the asset.
-    - entry_price: The price at which the trade was entered.
-    - exit_price: The price at which the trade was exited.
-    - pnl: The profit or loss of the trade in units of the quote currency.
-    - cumulative_pnl: The cumulative profit or loss of the strategy over time in units of the quote currency.
-    """
     # Run the strategy on the price data
     signals = strategy(prices)
 
