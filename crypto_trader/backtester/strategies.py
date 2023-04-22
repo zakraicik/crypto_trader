@@ -1,21 +1,24 @@
 import pandas as pd
+import numpy as np
 
 
-def moving_average_crossover(prices):
-    """
-    Generate trading signals based on a moving average crossover strategy.
+def calculate_sma(data: pd.DataFrame, window: int) -> pd.Series:
+    return data["close"].rolling(window=window).mean()
 
-    Parameters:
-    - prices: A pandas DataFrame containing historical price data.
 
-    Returns:
-    A pandas Series of trading signals, where a positive signal indicates a buy order and a negative signal indicates a sell order.
-    """
-    # Calculate the 50-day moving average
-    ma50 = prices["close"].rolling(window=50).mean()
+def sma_crossover_strategy(
+    data: pd.DataFrame, short_window: int, long_window: int
+) -> pd.DataFrame:
+    short_sma = calculate_sma(data, short_window)
+    long_sma = calculate_sma(data, long_window)
 
-    # Generate buy signals whenever the price crosses above the moving average
-    signals = pd.Series(0, index=prices.index)
-    signals[prices["close"] > ma50] = 1
+    signals = pd.DataFrame(index=data.index)
+    signals["timestamp"] = data.index
+    signals["position"] = 0
 
-    return signals
+    signals["position"][short_window:] = np.where(
+        short_sma[short_window:] > long_sma[short_window:], 1.0, -1.0
+    )
+    signals["position"] = signals["position"].diff().replace(0, np.nan).dropna()
+
+    return signals.reset_index(drop=True)

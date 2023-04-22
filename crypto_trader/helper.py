@@ -1,9 +1,11 @@
 import boto3
-import io
 import logging
 import json
 import requests
 from datetime import datetime
+import pandas as pd
+import matplotlib.pyplot as plt
+
 
 logger = logging.getLogger(__name__)
 
@@ -93,5 +95,48 @@ def to_s3(response, bucket_name, file_key, aws_access_key_id, aws_secret_access_
         return False
 
 
-def from_s3(response, bucket_name, file_key, aws_access_key_id, aws_secret_access_key):
-    pass
+def from_s3(
+    bucket: str, key: str, access_key_id: str, secret_access_key: str
+) -> pd.DataFrame:
+    s3 = boto3.client(
+        "s3", aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key
+    )
+    obj = s3.get_object(Bucket=bucket, Key=key)
+    data = json.loads(obj["Body"].read().decode("utf-8"))
+    df = pd.DataFrame(data)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+    df.set_index("timestamp", inplace=True)
+    return df
+
+
+def plot_trades(data: pd.DataFrame, trades: pd.DataFrame) -> None:
+    # Plot the price data
+    plt.figure(figsize=(14, 8))
+    plt.plot(data.index, data["close"], label="Price")
+
+    # Overlay the buy signals
+    buy_signals = trades[trades["trade_type"] == "buy"]
+    plt.scatter(
+        buy_signals["timestamp"],
+        buy_signals["entry_price"],
+        marker="^",
+        color="g",
+        label="Buy Signal",
+    )
+
+    # Overlay the sell signals
+    sell_signals = trades[trades["trade_type"] == "sell"]
+    plt.scatter(
+        sell_signals["timestamp"],
+        sell_signals["entry_price"],
+        marker="v",
+        color="r",
+        label="Sell Signal",
+    )
+
+    plt.xlabel("Date")
+    plt.ylabel("Price")
+    plt.title("Price Data with Buy/Sell Signals")
+    plt.legend()
+    plt.grid()
+    plt.show()
