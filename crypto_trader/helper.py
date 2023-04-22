@@ -102,41 +102,66 @@ def from_s3(
         "s3", aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key
     )
     obj = s3.get_object(Bucket=bucket, Key=key)
-    data = json.loads(obj["Body"].read().decode("utf-8"))
-    df = pd.DataFrame(data)
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-    df.set_index("timestamp", inplace=True)
+    data = obj["Body"].read().decode("utf-8")
+    df = pd.read_json(data, orient="records")
+    df["open_time"] = pd.to_datetime(df["open_time"], unit="ms")
+    df["close_time"] = pd.to_datetime(df["close_time"], unit="ms")
     return df
 
 
-def plot_trades(data: pd.DataFrame, trades: pd.DataFrame) -> None:
-    # Plot the price data
-    plt.figure(figsize=(14, 8))
-    plt.plot(data.index, data["close"], label="Price")
+def plot_signals(data: pd.DataFrame, signals: pd.DataFrame):
+    # Merge price data and signals
+    data_signals = pd.merge(
+        data, signals, left_on="open_time", right_on="timestamp", how="left"
+    )
 
-    # Overlay the buy signals
-    buy_signals = trades[trades["trade_type"] == "buy"]
+    # Plot the close price
+    plt.figure(figsize=(14, 8))
+    plt.plot(
+        data_signals["timestamp"], data_signals["close"], label="Price", linewidth=1
+    )
+
+    # Plot short SMA
+    plt.plot(
+        data_signals["timestamp"],
+        data_signals["short_sma"],
+        label=f"Short SMA",
+        linewidth=1,
+    )
+
+    # Plot long SMA
+    plt.plot(
+        data_signals["timestamp"],
+        data_signals["long_sma"],
+        label=f"Long SMA",
+        linewidth=1,
+    )
+
+    # Overlay buy signals
+    buy_signals = data_signals[data_signals["position"] == 1]
     plt.scatter(
         buy_signals["timestamp"],
-        buy_signals["entry_price"],
+        buy_signals["close"],
+        label="Buy",
         marker="^",
         color="g",
-        label="Buy Signal",
     )
 
-    # Overlay the sell signals
-    sell_signals = trades[trades["trade_type"] == "sell"]
+    # Overlay sell signals
+    sell_signals = data_signals[data_signals["position"] == -1]
     plt.scatter(
         sell_signals["timestamp"],
-        sell_signals["entry_price"],
+        sell_signals["close"],
+        label="Sell",
         marker="v",
         color="r",
-        label="Sell Signal",
     )
 
-    plt.xlabel("Date")
+    # Add labels and legend
+    plt.xlabel("Timestamp")
     plt.ylabel("Price")
-    plt.title("Price Data with Buy/Sell Signals")
-    plt.legend()
-    plt.grid()
+    plt.legend(loc="best")
+    plt.title("Price data with Buy/Sell signals and SMAs")
+
+    # Display the plot
     plt.show()
